@@ -11,13 +11,13 @@ class City():
         self.name = name 
         
     # Heruistic Function
-    def straight_line_distance( self,goal ):
+    def straight_line_distance( src,goal ):
         
         # approximate radius of earth in km
         R = 6373.0
         
-        lat1 = radians(self.lat)
-        lon1 = radians(self.lng)
+        lat1 = radians(src.lat)
+        lon1 = radians(src.lng)
         lat2 = radians(goal.lat)
         lon2 = radians(goal.lng)
         
@@ -30,8 +30,6 @@ class City():
         distance = R * c
         
         return distance
-
-        
         
     def __str__(self) -> str:
         

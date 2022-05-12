@@ -6,47 +6,83 @@ import requests
 from models import City
 
 import networkx as nx
+from json import dumps
+
 
 count = 0
+global g
+g = nx.Graph()
 
-def get_distance(origins, destinations):
+def update_file():
+    global g
+    serialzable_graph  = nx.node_link_data(g)
+    
+    json_str = dumps(serialzable_graph, indent=4, default=lambda x: x.__dict__)
+    
+    with open("res.json", "w") as res_file:
+        res_file.write(json_str)
+
+def get_distance(src_cities: List[City], dest_cities: List[City]):
 
     global count
-
+    global g
     url = "https://maps.googleapis.com/maps/api/distancematrix/json"
     
     # deepcode ignore HardcodedNonCryptoSecret: <>
     API_KEY = "AIzaSyBAXXKZP6Sdl22Hg0m4JaWecuPnwFpqGow"
     
+    
+    src_query_str = "|".join([ f"{city.lat},{city.lng}" for city in src_cities])
+    dest_query_str = "|".join([ f"{city.lat},{city.lng}" for city in dest_cities])
+    
     args = {
         "key": API_KEY,
         "units": "si",
-        "origins": origins,
-        "destinations": destinations,    
-        "mode": "walking" # "driving"
+        "origins": src_query_str,
+        "destinations": dest_query_str,    
+        "mode": "walking" 
     }
     
     headers = {
         "Accept": "application/json"
     }
     
-    response = requests.request("GET", url, headers=headers, params=args)
+    walking_response = requests.request("GET", url, headers=headers, params=args)
+    
+    args["mode"] = "driving"
+    
+    driving_response = requests.request("GET", url, headers=headers, params=args)
     
     
-    
-    for row in response.json()["rows"]:
+    i = 0
+    for i in range(len(walking_response.json()["rows"])):
         
-        for el in row["elements"]:
-            print(el["distance"]["value"])
-            count += 1
+        walk_row = walking_response.json()["rows"][i]
+        drive_row = driving_response.json()["rows"][i]
         
-        print("\n")
+         # working on route where origin is src_cities[i] 
         
-    
+        j = 0
+        for j in range(len(walk_row["elements"])):
+            
+            walk_element = walk_row["elements"][i]
+            drive_element = drive_row["elements"][i]
+            
+            try:
+                g.add_edge(src_cities[i], dest_cities[j], driving_cost = drive_element["distance"]["value"], walking_cost=walk_element["distance"]["value"])
+                print(f"Edge added between src: {src_cities[i].name} and dest: {dest_cities[j].name}")
+            except KeyError as k:
+                print(f"\n\n -- Key Error between src: {src_cities[i].name} and dest: {dest_cities[j].name}, walk_response={walking_response.text},  drive_response={driving_response.text}\n\n\n")
+            
+            update_file()
+                
+            count += 1 
+
     
 cities: List[City] = []
 
-g = nx.Graph()
+
+
 
 
 def read_csv():
@@ -61,13 +97,6 @@ def read_csv():
             
             g.add_node(c)
             
-            for city in cities[:-1]:
-                g.add_edge(c, city, driving_distance=23, walking_distance=20)    
-                
-            
-            # print( f"{c.lat},{c.lng}|", end ="")
-            
-            
             
 read_csv()
 
@@ -76,25 +105,40 @@ read_csv()
 
 
 
-worklist=[]
+worklist1=[]
+worklist2=[]
 
 
 
 
 
 max=6
+
+def prodWorkList(displ,rng,cities):
+    worklist = []
+
+    for j in range(rng):
+
+        index=j + displ*5
+        worklist.append(cities[index])
+            
+    return worklist
+
 for i in range(max):
 
-    for j in range(5):
+    worklist1=prodWorkList(i,5,cities)
 
-        noor = j + i*5
-        worklist.append(cities[noor])
-        
-    destinations_sourcs = "|".join([ f"{city.lat},{city.lng}" for city in worklist])
+    for j in range(max):
+
+        worklist2=prodWorkList(j,5,cities)
+
+
+        get_distance(worklist1, worklist2)
+
+
+
+
     
-    get_distance(destinations_sourcs, destinations_sourcs)
     
-    print (worklist)
-    worklist=[]
-    
+
 print(count)
